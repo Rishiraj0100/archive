@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta viewport>
+<link rel="stylesheet" href="/static/globals.css" />
+<link rel="stylesheet" href="/static/fa.css" type="text/css" media="all" />
+<script src = "/static/jquery.js">
+</script>
+<script>
+let FILE="{{layout_file}}"
+const FILES=["{{layout_file}}","{{chat_file}}","{{settings_file}}"]
+let callCount = {}
+let states = {}
+FILES.forEach((f, _)=>{
+  callCount[f] = -1;
+  states[f]=[]
+});
+function getState(initValue) {
+  const id = ++callCount[FILE]
+  return states[FILE][id][0]
+}
+function useState(initValue) {
+  const id = ++callCount[FILE]
+  
+  if (states[FILE][id]) return states[FILE][id]
+  const file=FILE;
+  const setValue = (newValue) => {
+    states[file][id][0] = newValue instanceof Function ? newValue(states[file][id][0]) : newValue;
+    reRender(file)
+  }
+  
+  let tuple = [initValue, setValue]
+  states[FILE].push(tuple)
+  return tuple
+}
+function useRef(iv) {
+  return useState({current: iv })[0]
+}
+
+const checkDependenciesChanged = (
+  prevDeps,
+  deps
+) => {
+  if (prevDeps.length !== deps.length) {
+    console.warn(
+      "The length of the dependencies array must remain constistent between renders."
+    );
+  }
+  
+  return deps.some((dep, index) => {
+    return !Object.is(dep, prevDeps[index]);
+  });
+};
+
+const useEffect = (
+  effect,
+  deps = undefined
+) => {
+  const prevDeps = useRef(deps);
+  const isFirstRender = useRef(true);
+  
+  const cleanup = useRef(null);
+  
+  if (isFirstRender.current) {
+    isFirstRender.current = false;
+    cleanup.current = effect() || null;
+    return;
+  }
+  
+  if (!deps) {
+    cleanup.current?.();
+    cleanup.current = effect();
+    return;
+  }
+  
+  const isDepsChanged = checkDependenciesChanged(prevDeps.current, deps);
+  
+  if (isDepsChanged) {
+    cleanup.current?.();
+    cleanup.current = effect() || null;
+  }
+  
+  prevDeps.current = deps;
+};
+reRender = (file, fl=true) =>{
+file = file
+OLD_FILE = FILE
+FILE = file
+callCount[file]=-1
+$(`script[data-file='${file}']`).each((i,e)=>{
+  eval(e.innerText)
+});
+if(fl){
+d = ["class", "placeholder", "disabled", "title", "onchange"]
+d.forEach((cl, _) => {
+  $(`[data-${cl}]`).each((i,e)=>{
+    e = $(e)
+    // try{
+    vv=eval(e.data(cl))
+    //alert(vv)
+    e.attr(cl, vv)
+    // }catch(err){alert(cl);}
+  });
+});
+$("[data-value]").each((i,e)=>{
+  e.value=eval($(e).data("value"))||""
+});
+$("[data-ref]").each((i,e) => {
+  eval($(e).data("ref")).current = e;
+})}
+FILE=OLD_FILE
+}
+</script>
+</head>
+<body>
+<div class="app-container">
+<script class="fs">FILE="{{chat_file}}"</script>
+{%- include chat_file -%}
+<script class="fs">FILE="{{layout_file}}"</script>
+<script>reRender("{{chat_file}}")</script>
+</div>
+</body>
+</html>
